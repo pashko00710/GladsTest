@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">GladsTest</string>
+    <string name="unknown_error">Произошла неизвестная ошибка</string>
+</resources>

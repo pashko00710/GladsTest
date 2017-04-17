@@ -2,11 +2,12 @@ package me.uptop.gladstest.data.storage.realm;
 
 import io.realm.RealmObject;
 import io.realm.annotations.PrimaryKey;
-import me.uptop.gladstest.data.network.res.PostsResponse;
+import me.uptop.gladstest.data.network.res.model.Post;
 
 public class PostsRealm extends RealmObject {
     @PrimaryKey
     private int id;
+    private int categoryId;
     private String name;
     private String redirectUrl;
     private String screenshotUrl;
@@ -18,14 +19,20 @@ public class PostsRealm extends RealmObject {
 
     }
 
-    public PostsRealm(PostsResponse postsRes) {
+    public PostsRealm(Post postsRes) {
         id = postsRes.getId();
+        categoryId = postsRes.getCategoryId();
+
         name = postsRes.getName();
         redirectUrl = postsRes.getRedirectUrl();
         screenshotUrl = postsRes.getScreenshotThreeHundredImage();
         thumbnail = postsRes.getThumbnailImageUrl();
         votesCount = postsRes.getVotesCount();
         desc = postsRes.getTagLine();
+    }
+
+    public int getCategoryId() {
+        return categoryId;
     }
 
     public int getId() {

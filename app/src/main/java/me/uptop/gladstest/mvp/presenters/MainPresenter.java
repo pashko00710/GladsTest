@@ -1,19 +1,24 @@
 package me.uptop.gladstest.mvp.presenters;
 
-import android.util.Log;
+import java.util.concurrent.TimeUnit;
 
 import javax.inject.Inject;
 
 import dagger.Provides;
+import io.realm.Realm;
+import io.realm.RealmResults;
+import me.uptop.gladstest.data.storage.realm.CategoriesRealm;
 import me.uptop.gladstest.data.storage.realm.PostsRealm;
 import me.uptop.gladstest.di.DaggerService;
 import me.uptop.gladstest.di.scopes.MainScope;
 import me.uptop.gladstest.mvp.models.MainModel;
 import me.uptop.gladstest.mvp.views.IMainView;
 import me.uptop.gladstest.ui.adapters.PostsAdapter;
+import rx.Observable;
 import rx.Subscriber;
 import rx.Subscription;
 import rx.android.schedulers.AndroidSchedulers;
+import rx.schedulers.Schedulers;
 import rx.subscriptions.CompositeSubscription;
 
 public class MainPresenter extends AbstractPresenter<IMainView> {
@@ -22,6 +27,7 @@ public class MainPresenter extends AbstractPresenter<IMainView> {
     MainModel mModel;
 
     protected CompositeSubscription mCompositeSubscription;
+    Subscription allPosts;
 //    private RealmChangeListener mListener;
 
     public MainPresenter() {
@@ -36,7 +42,9 @@ public class MainPresenter extends AbstractPresenter<IMainView> {
 
     @Override
     public void initView() {
-        mCompositeSubscription.add(subscribeOnQuotesRealmObs());
+        mCompositeSubscription.add(subscribeOnPostsRealmObs("tech"));
+        mCompositeSubscription.add(mModel.allCategoriesSubscribe());
+//        mCompositeSubscription.add(getCategories());
 //        if(getView() != null && getView().getQuote() != null) {
 //
 //            mListener = element -> {
@@ -48,27 +56,61 @@ public class MainPresenter extends AbstractPresenter<IMainView> {
 //        }
     }
 
+
+
     @Override
     public void dropView() {
         if(mCompositeSubscription.hasSubscriptions()) {
             mCompositeSubscription.unsubscribe();
         }
-//        getView().getQuote().removeChangeListener(mListener);
+
         super.dropView();
     }
 
-    private Subscription subscribeOnQuotesRealmObs() {
+//    private Subscription getCategories() {
+//        return mModel.allCategories().subscribe();
+//    }
+
+    private Subscription subscribeOnPostsRealmObs(String category) {
         if(getView() != null) {
             getView().showLoad();
+            Observable.timer(3, TimeUnit.SECONDS)
+                    .subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread())
+                    .subscribe(new Subscriber<Long>() {
+                @Override
+                public void onCompleted() {
+                    getView().hideLoad();
+                }
+
+                @Override
+                public void onError(Throwable e) {
+                    getView().showError(e);
+                }
+
+                @Override
+                public void onNext(Long aLong) {
+
+                }
+            });
         }
 
-        Log.e("AllQuotesPresenter", "initView: ");
-        Subscription allQuotes = mModel.allQuotesObs()
-                .subscribeOn(AndroidSchedulers.mainThread())
+        allPosts = mModel.allQuotesObs(category)
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(new RealmSubscriber());
 
-        return allQuotes;
+        return allPosts;
+    }
+
+    public void changeCategory(CategoriesRealm item) {
+        mCompositeSubscription.remove(allPosts);
+        getView().getAdapter().clearData();
+        Realm realm = Realm.getDefaultInstance();
+        realm.executeTransaction(realm1 -> {
+            RealmResults<PostsRealm> result = realm1.where(PostsRealm.class).findAll();
+            result.deleteAllFromRealm();
+        });
+        mCompositeSubscription.add(subscribeOnPostsRealmObs(item.getSlug()));
     }
 
 
@@ -77,8 +119,6 @@ public class MainPresenter extends AbstractPresenter<IMainView> {
 
         @Override
         public void onCompleted() {
-            getView().hideLoad();
-            getView().initAdapter();
         }
 
         @Override
@@ -92,7 +132,8 @@ public class MainPresenter extends AbstractPresenter<IMainView> {
         @Override
         public void onNext(PostsRealm postsRealm) {
             mAdapter.addItem(postsRealm);
-//            getView().i();
+            getView().hideLoad();
+            getView().initAdapter();
         }
     }
 
